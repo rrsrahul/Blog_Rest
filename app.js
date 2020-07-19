@@ -10,6 +10,7 @@ const { graphqlHTTP } = require('express-graphql');
 
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
+const auth = require('./middleware/auth');
 
 
 const app = express();
@@ -57,12 +58,15 @@ app.use((req, res, next) => {
 });
 
 
+app.use(auth);
+
+
 //formatError helps in handling errors
 app.use('/graphql',graphqlHTTP({
   schema:graphqlSchema,
   rootValue:graphqlResolver,
   graphiql:true,
-  formatError(err)
+  customFormatErrorFn(err)
   {
     if(!err.originalError)
     {
