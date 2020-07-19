@@ -53,10 +53,24 @@ app.use((req, res, next) => {
 });
 
 
-
+//formatError helps in handling errors
 app.use('/graphql',graphqlHTTP({
   schema:graphqlSchema,
-  rootValue:graphqlResolver
+  rootValue:graphqlResolver,
+  graphiql:true,
+  formatError(err)
+  {
+    if(!err.originalError)
+    {
+      return err;
+    }
+    const data = err.originalError.data;
+    const message = err.message || 'An Error occured';
+    const code = err.originalError.code || 500;
+     return {message: message , data: data, status: code};
+
+
+  }
 }));
 
 app.use((error, req, res, next) => {
