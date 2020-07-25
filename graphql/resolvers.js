@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 
 const User = require('../models/user'); 
 const Post = require('../models/post');
+const { getPost } = require('../controllers/feed');
+const { clearImage } = require('../util/file');
 
 module.exports = {
     createUser: async function({ userInput },req){
@@ -161,5 +163,121 @@ module.exports = {
                 }),
             totalPosts:totalPosts
         }
+    },
+    getPost:async function({ id },req)
+    {
+        /*add Authentication 
+        if(!req.isAuth)
+        {
+            const err = new Error('User is not authenticated');
+            err.code = 401;
+            throw err;
+        }*/
+
+        const post = await Post.findById(id).populate('creator');
+        if(!post)
+        {
+           const error =  new Error('No posts found');
+           error.code = 404;
+           throw error;
+        }
+
+        return {
+            ...post._doc,
+            _id:post._id.toString(),
+            createdAt:post.createdAt.toISOString(),
+            updatedAt: post.updatedAt.toISOString()
+        }
+    },
+    updatePost: async function({id,postInput},req)
+    {
+         /*add Authentication 
+        if(!req.isAuth)
+        {
+            const err = new Error('User is not authenticated');
+            err.code = 401;
+            throw err;
+        }*/
+
+        const post = await Post.findById(id).populate('creator');
+
+        if(!post)
+        {
+            const error =  new Error('No posts found');
+           error.code = 404;
+           throw error;
+        }
+
+        if(post.creator._id.toString()!== req.userId.toString())
+        {
+                const err = new Error('Not Authorized');
+                err.code=403;
+                throw err;
+        }
+
+        const errors = [];
+
+        if(validator.isEmpty(postInput.title) || !validator.isLength(postInput.title,{ min:3}))
+        {
+            errors.push({message:'Title is too short'});
+        }
+
+        if(validator.isEmpty(postInput.content) || !validator.isLength(postInput.content,{ min:3}))
+        {
+            errors.push({message:'Content is too short'});
+        }
+
+        if(errors.length>0)
+        {
+            const err = new Error('Invalid Input');
+            err.data = errors;
+            err.code = 422;
+            throw err;
+        }
+
+        post.title = postInput.title;
+        post.content = postInput.content;
+        if(post.imageUrl!=undefined)
+        {
+            post.imageUrl=postInput.imageUrl;
+        }
+        const updatedPost = post.save();
+        return {
+            ...updatedPost._doc,
+            _id:updatedPost.toString(),
+            createdAt:updatedPost.createdAt.toISOString(),
+            updatedAt:updatedPost.updatedAt.toISOString()
+        }
+    },
+    deletePost: async function({ id },req)
+    {
+         /*add Authentication 
+        if(!req.isAuth)
+        {
+            const err = new Error('User is not authenticated');
+            err.code = 401;
+            throw err;
+        }*/
+        const post = await post.findById(id);
+
+        if(!post)
+        {
+            const error =  new Error('No posts found');
+           error.code = 404;
+           throw error;
+        }
+
+        if(post.creator.toString()!== req.userId.toString())
+        {
+                const err = new Error('Not Authorized');
+                err.code=403;
+                throw err;
+        }
+        clearImage(post.imageUrl);
+        await post.findByIdAndRemove(id);
+        const user = await User.findById(req.userId);
+        user.posts.pull(id);//removes the id of the post from the user
+        await user.save();
+        return true;
     }
 }

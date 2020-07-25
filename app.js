@@ -1,4 +1,6 @@
 const path = require('path');
+const fs = require('fs');
+
 
 
 const express = require('express');
@@ -11,6 +13,7 @@ const { graphqlHTTP } = require('express-graphql');
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
 const auth = require('./middleware/auth');
+const { clearImage } = require('./util/file');
 
 
 const app = express();
@@ -57,8 +60,22 @@ app.use((req, res, next) => {
   next();
 });
 
-
 app.use(auth);
+
+app.put('/post-image',(req,res,next)=>
+{
+  if(!req.file)
+  {
+    return res.status(200).json({message:'No file found'});
+  }
+  if(req.body.oldPath)
+  {
+    clearImage(req.body.oldPath);
+  }
+  return res.status(201).json({message:'file stored',filePath:req.file.path});
+});
+
+
 
 
 //formatError helps in handling errors
@@ -99,3 +116,10 @@ mongoose
    
   })
   .catch(err => console.log(err));
+
+
+  const clearImage = filePath => {
+    filePath = path.join(__dirname, '..', filePath);
+    fs.unlink(filePath, err => console.log(err));
+  };
+  
